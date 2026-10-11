@@ -34,7 +34,6 @@ import os
 
 from Crypto.Util.number import bytes_to_long, getPrime, isPrime
 
-
 FLAG = os.environ.get("FLAG", "Alpaca{DUMMY}").encode()
 e = 65537
 
@@ -105,7 +104,7 @@ sequenceDiagram
 ### RSA のおさらい
 RSA は次のように鍵を作り、暗号化・復号します（$`p, q`$ は異なる素数）。
 
-```math
+$$
 \begin{aligned}
 n &= p\,q \\
 \varphi(n) &= (p-1)(q-1) \\
@@ -113,61 +112,60 @@ e\,d &\equiv 1 \pmod{\varphi(n)} \\
 c &= m^{e} \bmod n \quad \text{(encrypt)} \\
 m &= c^{d} \bmod n \quad \text{(decrypt)}
 \end{aligned}
-```
+$$
 
 公開されるのは $`(n, e)`$ だけで、秘密鍵 $`d`$ を作るには $`n`$ の素因数が必要です。つまり今回も **$`n_1`$ か $`n_2`$ のどちらかを素因数分解できれば勝ち** です。
 
 ### n1 / n2 は q1 / q2 にとても近い
 2 つの $`n`$ の比をとってみます。
 
-```math
+$$
 \frac{n_1}{n_2} = \frac{p\,q_1}{(p+2)\,q_2} = \frac{q_1}{q_2} \cdot \frac{p}{p+2}
-```
+$$
 
 $`p`$ は 1024 ビットもある巨大な数なので、$`\dfrac{p}{p+2} = 1 - \dfrac{2}{p+2}`$ はほとんど 1 です。そのため
-
-```math
+$$
 \frac{n_1}{n_2} \approx \frac{q_1}{q_2},
 \qquad
 \left| \frac{n_1}{n_2} - \frac{q_1}{q_2} \right| = \frac{q_1}{q_2} \cdot \frac{2}{p+2}
-```
+$$
 
 となり、**公開されている分数 $`n_1 / n_2`$ が、分母がたった 256 ビットの秘密の分数 $`q_1 / q_2`$ で極めて正確に近似できる** ことが分かります。実際の値で計算すると、このずれは約 $`2^{-1022}`$ でした。
 
 ### 連分数で q1 / q2 を取り出す
 「ある実数を、分母の小さい分数でうまく近似する」ための道具が **連分数展開** です。分数 $`x`$ を次の形に書き、
 
-```math
+$$
 x = k_0 + \cfrac{1}{k_1 + \cfrac{1}{k_2 + \cfrac{1}{k_3 + \cdots}}}
-```
+$$
 
 途中で打ち切って得られる分数 $`h_i / g_i`$ を **近似分数（convergent）** と呼びます。係数 $`k_i`$ はユークリッドの互除法の商そのもので、近似分数は次の漸化式で順に計算できます。
 
-```math
+$$
 \begin{aligned}
 h_i &= k_i\,h_{i-1} + h_{i-2}, & h_{-2} &= 0,\ h_{-1} = 1 \\
 g_i &= k_i\,g_{i-1} + g_{i-2}, & g_{-2} &= 1,\ g_{-1} = 0
 \end{aligned}
-```
+$$
 
 そして、次の **ルジャンドルの定理** が鍵になります。
 
 > [!TIP]
 > **ルジャンドルの定理**: 既約分数 $`a/b`$ が
 >
-> ```math
+> $$
 > \left| x - \frac{a}{b} \right| < \frac{1}{2\,b^{2}}
-> ```
+> $$
 >
 > を満たすなら、$`a/b`$ は $`x`$ の近似分数のどれかと一致する。
 
 $`q_1, q_2`$ は異なる素数なので $`q_1 / q_2`$ は既約分数です。条件に当てはめると、
 
-```math
+$$
 \frac{q_1}{q_2} \cdot \frac{2}{p+2} < \frac{1}{2\,q_2^{2}}
 \iff
 4\,q_1\,q_2 < p + 2
-```
+$$
 
 となります。$`q_1 q_2`$ は約 512 ビット、$`p`$ は 1024 ビットなので、この条件は大差で成り立ちます。
 
@@ -196,14 +194,14 @@ $`q_1, q_2`$ は異なる素数なので $`q_1 / q_2`$ は既約分数です。�
 ### p から秘密鍵 d を作る
 $`p`$ と $`q_1`$ が分かれば、あとは前作と同じ教科書どおりの RSA 復号です。
 
-```math
+$$
 \begin{aligned}
 p &= n_1 / q_1 \\
 \varphi(n_1) &= (p-1)(q_1-1) \\
 d &= e^{-1} \bmod \varphi(n_1) \\
 m &= c_1^{\,d} \bmod n_1
 \end{aligned}
-```
+$$
 
 今回の値で実際に確かめると $`\gcd(e, \varphi(n_1)) = 1`$ だったので、Python の `pow(e, -1, phi)` でそのまま $`d`$ を計算できます。最後に `long_to_bytes(m)` で整数を文字列に戻せばフラグが得られます。
 
@@ -212,9 +210,9 @@ m &= c_1^{\,d} \bmod n_1
 
 連分数の近似分数には、次の性質があります。
 
-```math
+$$
 \left| x - \frac{h_i}{g_i} \right| < \frac{1}{g_i\,g_{i+1}} \le \frac{1}{g_i^{2}}
-```
+$$
 
 分母 $`g_i`$ で作れる分数の間隔はおよそ $`1/g_i`$ なので、普通は誤差も $`1/g_i`$ 程度になります。近似分数はその **2 乗** の精度 $`1/g_i^2`$ を達成しており、「分母の大きさの割に異常に正確な分数」です。
 
@@ -226,15 +224,14 @@ m &= c_1^{\,d} \bmod n_1
 <summary>📐 補足: なぜ c<sup>d</sup> mod n で元に戻るのか（クリックで展開）</summary>
 
 $`e\,d \equiv 1 \pmod{\varphi(n)}`$ なので、ある整数 $`k \ge 0`$ を使って $`e\,d = 1 + k\,\varphi(n)`$ と書けます。$`\gcd(m, n) = 1`$ のとき、オイラーの定理 $`m^{\varphi(n)} \equiv 1 \pmod{n}`$ より
-
-```math
+$$
 \begin{aligned}
 c^{d} &\equiv (m^{e})^{d} = m^{e d} \\
 &= m^{1 + k\,\varphi(n)} \\
 &= m \cdot \left(m^{\varphi(n)}\right)^{k} \\
 &\equiv m \cdot 1^{k} = m \pmod{n}
 \end{aligned}
-```
+$$
 
 となります。さらに `chall.py` の `assert m < min(n1, n2)` により $`0 \le m < n_1`$ が保証されているので、$`c_1^{d} \bmod n_1`$ の結果はちょうど $`m`$ そのものになります。
 
